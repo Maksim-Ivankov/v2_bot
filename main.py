@@ -236,7 +236,7 @@ def check_trade(price):
             close_trade('-',SL)
             return 1
     
-prt(f'Робот {name_bot} запущен!\nНастройки:\nТейк профит - {TP*100}%\nСтоп лосс - {SL*100}%\nДепозит - {DEPO}$\nПлечо - {Leverage}\nКомиссия покупка - {commission_maker*100}%\nКомиссия продажа - {comission_taker*100}%\nНачали работать с монетой - {symbol.lower()}')
+prt(f'Робот {name_bot} запущен!\nНастройки:\nТейк профит - {TP}%\nСтоп лосс - {SL}%\nДепозит - {DEPO}$\nПлечо - {Leverage}\nКомиссия покупка - {commission_maker}%\nКомиссия продажа - {comission_taker}%\n')
 
     
 # Закрываем сделку
@@ -276,6 +276,7 @@ while True:
             for x,result in enumerate(coin_mas_10):
                 prices = get_futures_klines(result,TF,volume)
                 trend = check_if_signal(prices)
+                print(f'Монета {result}, сигнал - {trend}')
                 time.sleep(5) # Интервал в 10 секунд, чтобы бинанс не долбить
             if trend != 'нет сигнала':
                 break
