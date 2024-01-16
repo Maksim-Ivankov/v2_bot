@@ -38,7 +38,7 @@ canal_min = 0.4 # Низ канала
 corner_short = 20 # Угол наклона шорт
 corner_long = -20 # Угол наклона лонг
 
-
+data_value = 'Настройки бота:\nТаймфрейм - '+str(TF)+'\nТейк профит - '+str(TP)+'\nСтоп лосс - '+str(SL)+'\nНачальный депозит - '+str(DEPO)+'\nПлечо - '+str(Leverage)+'\nНазвание бота - '+str(name_bot)+'\nВерх канала - '+str(canal_max)+'\nНиз канала - '+str(canal_min)+'\nУгол наклона шорт - '+str(corner_short)+'\nУгол наклона лонг - '+str(corner_long)
 
 open_sl = False # флаг на открытые позиции
 price_trade = 0
@@ -46,8 +46,21 @@ signal_trade = ''
 coin_trade = ''
 value_trade = 0
 coin_mas_10 = []
+profit = 0
+loss = 0
+commission = 0
+sost_trading = 'Депозит = '+str(DEPO)+'| Сделки в плюс принесли '+str(profit)+'| Сделки в минус принесли '+str(loss)+'| На комиссию потратил '+str(commission)
 
 client = UMFutures(key=key, secret=secret)
+
+name_log = name_bot+'_log.txt'
+def logger(msg):
+    f = open(name_log,'a',encoding='utf-8')
+    f.write('\n'+time.strftime("%d.%m.%Y | %H:%M:%S | ", time.localtime())+msg)
+    f.close()
+logger('------------------------------------------------------------')
+logger('Бот запущен в работу')
+logger(data_value)
 
 # Получите последние 500 свечей по 5 минут для торговой пары, обрабатываем и записывае данные в датафрейм
 def get_futures_klines(symbol,TF,volume):
@@ -195,6 +208,7 @@ def open_position(trend,value,symbol):
     open_sl = True
     take_profit_price = get_take_profit(trend,price_trade) # получаем цену тэйк профита
     stop_loss_price = get_stop_loss(trend,price_trade) # получаем цену стоп лосса
+    logger(f'Новая сделка. Монета - {symbol} | Зашли в {trend} | Цена входа - {price_trade}')
     prt(f'🚀 -----Сделка----- 🚀\nБот - {name_bot}\nМонета - {symbol}\nЗашли в {trend}\nЦена входа - {price_trade}')
    
 
@@ -236,20 +250,29 @@ def check_trade(price):
             close_trade('-',SL)
             return 1
     
-prt(f'Робот {name_bot} запущен!\nНастройки:\nТейк профит - {TP}%\nСтоп лосс - {SL}%\nДепозит - {DEPO}$\nПлечо - {Leverage}\nКомиссия покупка - {commission_maker}%\nКомиссия продажа - {comission_taker}%\n')
+prt(f'Робот {name_bot} запущен!\nНастройки:\nТейк профит - {TP*100}%\nСтоп лосс - {SL*100}%\nДепозит - {DEPO}$\nПлечо - {Leverage}\nКомиссия покупка - {commission_maker*100}%\nКомиссия продажа - {comission_taker*100}%\nНачали работать с монетой - {symbol.lower()}')
 
     
 # Закрываем сделку
 def close_trade(status,procent):
     global DEPO
     global open_sl
+    global profit
+    global loss
+    global commission
     if status == '+': # если закрыли в плюс
+        profit = profit + Leverage*DEPO*procent
+        commission = commission + Leverage*DEPO*(commission_maker+comission_taker)
         DEPO = DEPO + Leverage*DEPO*procent - Leverage*DEPO*(commission_maker+comission_taker) # обновляем размер депо
-        prt(f'{name_bot} - Сработал тейк!\nЗакрылись в плюс, депо = {DEPO}')
+        logger(f'Сработал тейк! Закрылись в плюс, депо = {DEPO} Прибыль = {profit} Комиссия = {commission}')
+        prt(f'{name_bot} - Сработал тейк!\nЗакрылись в плюс, депо = {DEPO}\nПрибыль = {profit}\nКомиссия = {commission}')
         open_sl = False
     if status == '-': # если закрыли в минус
+        loss = loss + Leverage*DEPO*procent
+        commission = commission + Leverage*DEPO*(commission_maker+comission_taker)
         DEPO = DEPO - Leverage*DEPO*procent - Leverage*DEPO*(commission_maker+comission_taker) # обновляем размер депо
-        prt(f'{name_bot} - Сработал стоп!\nЗакрылись в минус, депо = {DEPO}')
+        logger(f'Сработал стоп! Закрылись в минус, депо = {DEPO} Убыток = {loss} Комиссия = {commission}')
+        prt(f'{name_bot} - Сработал стоп!\nЗакрылись в минус, депо = {DEPO}\nУбыток = {loss}\nКомиссия = {commission}')
         time.sleep(wait_time*60*2) # Интервал в wait_time * 2 минут после стопа, чтобы в эту же позицию по сигналу не зайти
         open_sl = False
 
@@ -276,11 +299,11 @@ while True:
             for x,result in enumerate(coin_mas_10):
                 prices = get_futures_klines(result,TF,volume)
                 trend = check_if_signal(prices)
-                print(f'Монета {result}, сигнал - {trend}')
                 time.sleep(5) # Интервал в 10 секунд, чтобы бинанс не долбить
                 if trend != 'нет сигнала':
                     break
             if trend == "нет сигнала":
+                logger('Нет сигнала')
                 print(time.strftime("%d.%m.%Y г. %H:%M", time.localtime()) + ' - Нет сигнала')
                 time.sleep(wait_time*60) # Интервал в wait_time минут между каждым новым выполнением, если нет сигнала
             else:
@@ -290,10 +313,15 @@ while True:
             loop = asyncio.get_event_loop()
             loop.run_until_complete(websocket_trade())
         if DEPO < 0:
-            prt(f'\Бот {name_bot} слил всё депо! Завершили работу бота') #
+            logger('Бот слил всё депо! Завершили работу бота')
+            logger(sost_trading)
+            prt(f'Бот {name_bot} слил всё депо! Завершили работу бота') #
             break
         
     except KeyboardInterrupt: #
+        
+        logger(sost_trading)
+        logger('Сбой в работе, остановка')
         prt(f'\nСбой в работе {name_bot}. Остановка.') #
         exit() 
 # ------------------------------конец бесконечного цикла------------------------------
