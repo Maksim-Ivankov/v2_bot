@@ -278,8 +278,8 @@ while True:
                 trend = check_if_signal(prices)
                 print(f'Монета {result}, сигнал - {trend}')
                 time.sleep(5) # Интервал в 10 секунд, чтобы бинанс не долбить
-            if trend != 'нет сигнала':
-                break
+                if trend != 'нет сигнала':
+                    break
             if trend == "нет сигнала":
                 print(time.strftime("%d.%m.%Y г. %H:%M", time.localtime()) + ' - Нет сигнала')
                 time.sleep(wait_time*60) # Интервал в wait_time минут между каждым новым выполнением, если нет сигнала
